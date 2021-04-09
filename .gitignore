@@ -9,6 +9,7 @@ src/main/scala/project/
 src/main/scala/target/
 target/
 
-
+# Added by Arnaud Dhaene
+project/metals.sbt
 .vscode/
 .metals/
