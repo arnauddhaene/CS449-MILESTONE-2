@@ -1,5 +1,5 @@
-1,Toy Story (1995),
-2,GoldenEye (1995),
+1,Toy Story (1995),3
+2,GoldenEye (1995),5
 3,Four Rooms (1995),
 4,Get Shorty (1995),
 5,Copycat (1995),
@@ -8,8 +8,8 @@
 8,Babe (1995),
 9,Dead Man Walking (1995),
 10,Richard III (1995),
-11,Seven (Se7en) (1995),
-12,Usual Suspects,
+11,Seven (Se7en) (1995),5
+12,Usual Suspects,5
 13,Mighty Aphrodite (1995),
 14,Postino,
 15,Mr. Holland's Opus (1995),
@@ -19,8 +19,8 @@
 19,Antonia's Line (1995),
 20,Angels and Insects (1995),
 21,Muppet Treasure Island (1996),
-22,Braveheart (1995),
-23,Taxi Driver (1976),
+22,Braveheart (1995),4
+23,Taxi Driver (1976),4
 24,Rumble in the Bronx (1995),
 25,Birdcage,
 26,Brothers McMullen,
@@ -28,7 +28,7 @@
 28,Apollo 13 (1995),
 29,Batman Forever (1995),
 30,Belle de jour (1967),
-31,Crimson Tide (1995),
+31,Crimson Tide (1995),2
 32,Crumb (1994),
 33,Desperado (1995),
 34,Doom Generation,
@@ -47,28 +47,28 @@
 47,Ed Wood (1994),
 48,Hoop Dreams (1994),
 49,I.Q. (1994),
-50,Star Wars (1977),
+50,Star Wars (1977),4
 51,Legends of the Fall (1994),
 52,Madness of King George,
 53,Natural Born Killers (1994),
 54,Outbreak (1995),
 55,Professional,
-56,Pulp Fiction (1994),
-57,Priest (1994),
+56,Pulp Fiction (1994),5
+57,Priest (1994),1
 58,Quiz Show (1994),
 59,Three Colors: Red (1994),
 60,Three Colors: Blue (1993),
 61,Three Colors: White (1994),
 62,Stargate (1994),
 63,Santa Clause,
-64,Shawshank Redemption,
+64,Shawshank Redemption,4
 65,What's Eating Gilbert Grape (1993),
 66,While You Were Sleeping (1995),
-67,Ace Ventura: Pet Detective (1994),
+67,Ace Ventura: Pet Detective (1994),4
 68,Crow,
-69,Forrest Gump (1994),
-70,Four Weddings and a Funeral (1994),
-71,Lion King,
+69,Forrest Gump (1994),4
+70,Four Weddings and a Funeral (1994),1
+71,Lion King,2
 72,Mask,
 73,Maverick (1994),
 74,Faster Pussycat! Kill! Kill! (1965),
@@ -79,7 +79,7 @@
 79,Fugitive,
 80,Hot Shots! Part Deux (1993),
 81,Hudsucker Proxy,
-82,Jurassic Park (1993),
+82,Jurassic Park (1993),2
 83,Much Ado About Nothing (1993),
 84,Robert A. Heinlein's The Puppet Masters (1994),
 85,Ref,
@@ -91,15 +91,15 @@
 91,Nightmare Before Christmas,
 92,True Romance (1993),
 93,Welcome to the Dollhouse (1995),
-94,Home Alone (1990),
-95,Aladdin (1992),
+94,Home Alone (1990),2
+95,Aladdin (1992),1
 96,Terminator 2: Judgment Day (1991),
 97,Dances with Wolves (1990),
-98,Silence of the Lambs,
+98,Silence of the Lambs,5
 99,Snow White and the Seven Dwarfs (1937),
-100,Fargo (1996),
+100,Fargo (1996),4
 101,Heavy Metal (1981),
-102,Aristocats,
+102,Aristocats,1
 103,All Dogs Go to Heaven 2 (1996),
 104,Theodore Rex (1995),
 105,Sgt. Bilko (1996),
@@ -124,15 +124,15 @@
 124,Lone Star (1996),
 125,Phenomenon (1996),
 126,Spitfire Grill,
-127,Godfather,
+127,Godfather,5
 128,Supercop (1992),
 129,Bound (1996),
 130,Kansas City (1996),
 131,Breakfast at Tiffany's (1961),
 132,Wizard of Oz,
 133,Gone with the Wind (1939),
-134,Citizen Kane (1941),
-135,2001: A Space Odyssey (1968),
+134,Citizen Kane (1941),4
+135,2001: A Space Odyssey (1968),5
 136,Mr. Smith Goes to Washington (1939),
 137,Big Night (1996),
 138,D3: The Mighty Ducks (1996),
@@ -141,21 +141,21 @@
 141,20,
 142,Bedknobs and Broomsticks (1971),
 143,Sound of Music,
-144,Die Hard (1988),
+144,Die Hard (1988),4
 145,Lawnmower Man,
 146,Unhook the Stars (1996),
 147,Long Kiss Goodnight,
 148,Ghost and the Darkness,
 149,Jude (1996),
 150,Swingers (1996),
-151,Willy Wonka and the Chocolate Factory (1971),
+151,Willy Wonka and the Chocolate Factory (1971),2
 152,Sleeper (1973),
 153,Fish Called Wanda,
 154,Monty Python's Life of Brian (1979),
-155,Dirty Dancing (1987),
-156,Reservoir Dogs (1992),
+155,Dirty Dancing (1987),5
+156,Reservoir Dogs (1992),5
 157,Platoon (1986),
-158,Weekend at Bernie's (1989),
+158,Weekend at Bernie's (1989),4
 159,Basic Instinct (1992),
 160,Glengarry Glen Ross (1992),
 161,Top Gun (1986),
@@ -174,18 +174,18 @@
 174,Raiders of the Lost Ark (1981),
 175,Brazil (1985),
 176,Aliens (1986),
-177,The Good The Bad and the Ugly,
+177,The Good The Bad and the Ugly,4
 178,12 Angry Men (1957),
-179,Clockwork Orange,
-180,Apocalypse Now (1979),
+179,Clockwork Orange,5
+180,Apocalypse Now (1979),4
 181,Return of the Jedi (1983),
-182,GoodFellas (1990),
+182,GoodFellas (1990),5
 183,Alien (1979),
 184,Army of Darkness (1993),
 185,Psycho (1960),
 186,Blues Brothers,
-187,Godfather: Part II,
-188,Full Metal Jacket (1987),
+187,Godfather: Part II,5
+188,Full Metal Jacket (1987),5
 189,Grand Day Out,
 190,Henry V (1989),
 191,Amadeus (1984),
@@ -207,7 +207,7 @@
 207,Cyrano de Bergerac (1990),
 208,Young Frankenstein (1974),
 209,This Is Spinal Tap (1984),
-210,Indiana Jones and the Last Crusade (1989),
+210,Indiana Jones and the Last Crusade (1989),4
 211,M*A*S*H (1970),
 212,Unbearable Lightness of Being,
 213,Room with a View,
@@ -223,12 +223,12 @@
 223,Sling Blade (1996),
 224,Ridicule (1996),
 225,101 Dalmatians (1996),
-226,Die Hard 2 (1990),
-227,Star Trek VI: The Undiscovered Country (1991),
-228,Star Trek: The Wrath of Khan (1982),
-229,Star Trek III: The Search for Spock (1984),
-230,Star Trek IV: The Voyage Home (1986),
-231,Batman Returns (1992),
+226,Die Hard 2 (1990),4
+227,Star Trek VI: The Undiscovered Country (1991),2
+228,Star Trek: The Wrath of Khan (1982),2
+229,Star Trek III: The Search for Spock (1984),3
+230,Star Trek IV: The Voyage Home (1986),4
+231,Batman Returns (1992),5
 232,Young Guns (1988),
 233,Under Siege (1992),
 234,Jaws (1975),
@@ -254,7 +254,7 @@
 254,Batman & Robin (1997),
 255,My Best Friend's Wedding (1997),
 256,When the Cats Away (Chacun cherche son chat) (1996),
-257,Men in Black (1997),
+257,Men in Black (1997),4
 258,Contact (1997),
 259,George of the Jungle (1997),
 260,Event Horizon (1997),
@@ -416,11 +416,11 @@
 416,Old Yeller (1957),
 417,Parent Trap,
 418,Cinderella (1950),
-419,Mary Poppins (1964),
+419,Mary Poppins (1964),3
 420,Alice in Wonderland (1951),
 421,William Shakespeare's Romeo and Juliet (1996),
 422,Aladdin and the King of Thieves (1996),
-423,E.T. the Extra-Terrestrial (1982),
+423,E.T. the Extra-Terrestrial (1982),3
 424,Children of the Corn: The Gathering (1996),
 425,Bob Roberts (1992),
 426,Transformers: The Movie,
@@ -1591,7 +1591,7 @@
 1591,Duoluo tianshi (1995),
 1592,Magic Hour,
 1593,Death in Brunswick (1991),
-1594,Everest (1998),
+1594,Everest (1998),4
 1595,Shopping (1994),
 1596,Nemesis 2: Nebula (1995),
 1597,Romper Stomper (1992),
