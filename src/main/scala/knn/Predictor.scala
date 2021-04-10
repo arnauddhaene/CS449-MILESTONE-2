@@ -1,5 +1,12 @@
 package knn
 
+import similarity.Rating
+
+import similarity.RatingFunctions._
+import similarity.PairRDDFunctions._
+
+import knn.VectorFunctions._
+
 import org.rogach.scallop._
 import org.json4s.jackson.Serialization
 import org.apache.spark.rdd.RDD
@@ -15,7 +22,23 @@ class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
   verify()
 }
 
-case class Rating(user: Int, item: Int, rating: Double)
+// Extension of Vector[Double] with custom operators
+class VectorFunctions(underlying : Vector[Double]) {
+  
+  def mean = underlying.sum / underlying.size.toDouble
+
+  def stdev : Double = {
+    val avg = underlying.sum / underlying.size.toDouble
+    return scala.math.sqrt(
+      underlying.map(t => scala.math.pow((t - avg), 2)).sum / underlying.size.toDouble
+    )
+  }
+
+}
+
+object VectorFunctions {
+  implicit def addVectorFunctions(underlying : Vector[Double]) = new VectorFunctions(underlying) 
+}
 
 object Predictor extends App {
   // Remove these lines if encountering/debugging Spark
@@ -45,6 +68,14 @@ object Predictor extends App {
       Rating(cols(0).toInt, cols(1).toInt, cols(2).toDouble)
   })
   assert(test.count == 20000, "Invalid test data")
+
+  // ######################## MY CODE HERE ##########################
+
+
+
+
+  // ################################################################
+
 
   // Save answers as JSON
   def printToFile(content: String,

@@ -1,5 +1,11 @@
 package recommend
 
+import similarity.Predictor
+import similarity.Rating
+
+import similarity.RatingFunctions._
+import similarity.PairRDDFunctions._
+
 import org.rogach.scallop._
 import org.json4s.jackson.Serialization
 import org.apache.spark.rdd.RDD
@@ -14,8 +20,6 @@ class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val json = opt[String]()
   verify()
 }
-
-case class Rating(user: Int, item: Int, rating: Double)
 
 object Recommender extends App {
   // Remove these lines if encountering/debugging Spark
@@ -42,9 +46,47 @@ object Recommender extends App {
   val personalFile = spark.sparkContext.textFile(conf.personal())
   // TODO: Extract ratings and movie titles
   assert(personalFile.count == 1682, "Invalid personal data")
-
-
-
+  
+  // ######################## MY CODE HERE ##########################
+  
+  /**
+   * Recommend movies for a specific user using a specific predictor.
+   *
+   * @param ratings RDD of item ratings by users
+   * @param userId
+   * @param n top rated predictions to output
+   * @param predictor function that uses train and test sets to predict ratings
+   * 
+   * @return list containing (item, rating) pairs for the user with ID userId
+   */
+  def recommend(
+    ratings : RDD[Rating],
+    userId : Int,
+    n : Int,
+    predictor : (RDD[Rating], RDD[(Int, Int)]) => RDD[Rating] = Predictor.baselinePrediction
+    ) : List[(Int, Double)] = {
+      
+      val ratedItems = ratings.filter(_.user == userId).map(_.item).collect()
+      
+      // Create test set
+      val test = ratings
+        .map(_.item).distinct
+        .filter(!ratedItems.contains(_))
+        .map(i => (userId, i))
+      
+      val predictions = predictor(ratings, test).filter(_.user == userId)
+      
+      // Sort by item first to have ascending movie IDs for equally rated predictions
+      return predictions
+        .sortBy(_.item).sortBy(_.rating, false)
+        .toItemPair
+        .take(n).toList
+      
+    }
+    
+  // ################################################################
+    
+    
   // Save answers as JSON
   def printToFile(content: String,
                   location: String = "./answers.json") =
