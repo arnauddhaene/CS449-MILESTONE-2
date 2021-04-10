@@ -11,5 +11,6 @@ target/
 
 # Added by Arnaud Dhaene
 project/metals.sbt
+project/.bloop
 .vscode/
 .metals/
