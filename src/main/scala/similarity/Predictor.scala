@@ -214,7 +214,8 @@ object Predictor extends App {
     val similarities = train.toUserItemPair.groupByKey()
       // pairwise selection of users
       .cartesian(train.toUserItemPair.groupByKey())
-      // filter out self-selection
+      // filter out self-selection and select lower triangular
+      // of cross-product matrix
       .filter { case ((u, uis), (v, vis)) => (u != v) && (u < v) }
       // intersect the two item lists
       .map { 
@@ -272,20 +273,15 @@ object Predictor extends App {
             .map { case (v, r) => ((u, v), (i, uAvg, r)) }
       }
 
-
-
     println(s"CURRENT TEST SET SIZE ${predictions2.count}")
 
     val predictions3 = predictions2
-      // TODO: modify join to leftOuterJoin as we are losing information
-      // for some reason
-      //
-      // from 2643370 to 2224076 -- equivalent to 10 test samples in the end
-      .join(similarities)
+      .leftOuterJoin(similarities)
       // modify structure to join with train ratings
       .map { 
         case ((u, v), ((i, uAvg, r), s)) => 
-          ((u, i, uAvg), (v, s, r))
+          // TODO: verify that we should replace unchecked similarities by 0.0
+          ((u, i, uAvg), (v, s.getOrElse(0.0), r))
       }
       .map {
         case ((u, i, uAvg), (v, s, r)) => 
@@ -341,6 +337,7 @@ object Predictor extends App {
 
     println(s"CURRENT TEST SET SIZE ${predictions5.count}")
 
+    // TODO: it's returning null right now!??!
     return predictions5
 
   }
