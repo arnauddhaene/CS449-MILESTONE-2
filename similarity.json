@@ -24,7 +24,7 @@
     "TotalBytesToStoreNonZeroSimilarityComputationsForU1BaseDataset" : 0
   },
   "Q2.3.1" : {
-    "CosineBasedMae" : null,
+    "CosineBasedMae" : 0.748900414457436,
     "CosineMinusBaselineDifference" : 0.0
   },
   "Q2.3.6" : {

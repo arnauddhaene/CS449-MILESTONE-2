@@ -172,6 +172,58 @@ object Predictor extends App {
     )
   }
 
+  val processed = train
+    // key on user id
+    .map(r => (r.user, (r.item, r.rating)))
+    .groupByKey() 
+    // split List[Tuple[itemId, rating]] -> Tuple[List[itemId], List[rating]]
+    .map { case (u, l) => (u, l.unzip)}
+    // TODO: Maybe below I should also pass the average not to recalculate
+    // calculate cosine similarity denominator for each user
+    .map { 
+      case (u, (items, ratings)) => 
+        (u, (items, ratings, cosineSimilarityDenominator(ratings))) 
+    }
+    // compute the processed rating (Eq. 4) for each user's ratings
+    .map { 
+      case (u, (items, ratings, csd)) => 
+        (u, (items, ratings.map(normalizedDeviation(_, average(ratings)) / csd)))
+    }
+    // zip each item with its processed rating
+    .map {
+      case (u, (items, pRatings)) => (u, (items zip pRatings))
+    }
+    .collect
+    .toMap
+
+  
+  def userSimilarities(processed : Map[Int, Iterable[(Int, Double)]]/*, u : Int*/) = {
+
+    val similarities = (1 to 943)
+      .flatMap { 
+        case (u) => {
+          val uItemRatings = processed.get(u).getOrElse(List()).toMap
+          
+          (1 to u - 1).map {
+            case (v) => {
+              val vItemRatings = processed.get(v).getOrElse(List()).toMap
+
+              ((u, v), uItemRatings.keySet.intersect(vItemRatings.keySet).map(k => k -> ( uItemRatings(k), vItemRatings(k) )).toList)
+            }
+          }
+        }
+      }
+      // filter out similarities for users with no items in common
+      .filter { case ((u, v), l) => !l.isEmpty }
+      .map { 
+        case ((u, v), l) => 
+          ((u, v), l.map { case (i, (upr, vpr)) => upr * vpr }.reduce(_+_))
+      }
+
+    (similarities.toMap)
+  }
+
+
   /**
     * Compute rating prediction using the cosine similarity method.
     *
@@ -180,140 +232,44 @@ object Predictor extends App {
     * 
     * @return RDD[Rating] with the predicted rating for each (user, item) pair
     */
-  def cosinePredictor(train : RDD[Rating], test : RDD[(Int, Int)]) : RDD[Rating] = {
+  def cosinePredictor(train : RDD[Rating], test : RDD[(Int, Int)]) = {
 
     val globalAverage = train.averageRating
 
-    val processed = train
-      // key on user id
-      .map(r => (r.user, (r.item, r.rating)))
-      .groupByKey() 
-      // split List[Tuple[itemId, rating]] -> Tuple[List[itemId], List[rating]]
-      .map { case (u, l) => (u, l.unzip)}
-      // TODO: Maybe below I should also pass the average not to recalculate
-      // calculate cosine similarity denominator for each user
-      .map { 
-        case (u, (items, ratings)) => 
-          (u, (items, ratings, cosineSimilarityDenominator(ratings))) 
-      }
-      // compute the processed rating (Eq. 4) for each user's ratings
-      .map { 
-        case (u, (items, ratings, csd)) => 
-          (u, (items, ratings.map(normalizedDeviation(_, average(ratings)) / csd)))
-      }
-      // zip each item with its processed rating
-      .map {
-        case (u, (items, pRatings)) => (u, items zip pRatings)
-      }
-      // ungroup by user key
-      .flatMap { case (u, ir) => ir.map { case (i, r) => ((u, i), r) } }
-
-    // Verify that all samples are accounted for
-    assert(processed.count == train.count)
-
-    val similarities = train.toUserItemPair.groupByKey()
-      // pairwise selection of users
-      .cartesian(train.toUserItemPair.groupByKey())
-      // filter out self-selection and select lower triangular
-      // of cross-product matrix
-      .filter { case ((u, uis), (v, vis)) => (u != v) && (u < v) }
-      // intersect the two item lists
-      .map { 
-        case ((u, uis), (v, vis)) => 
-          ((u, v), uis.toSet.intersect(vis.toSet).toList) 
-      }
-      // compute similarity with processed ratings
-      .flatMap { 
-        case ((u, v), items) => items.flatMap(i => List(((u, i), v), ((v, i), u)))
-      }
-      // join with processed ratings `r^u`
-      .join(processed)
-      // modify key to prepare for grouping
-      .map { case ((u, i), (v, pr)) =>
-        (if (u < v) (u, v) else (v, u), (i, pr))
-      }
-      .groupByKey()
-      // reduce grouping to calculate `s_{u, v}`
-      // with key (u, v) for further joining
-      .map { case ((u, v), l) => 
-        ((u, v), l.groupBy { case (i, _) => i }
-          .mapValues { l => 
-            l.map { 
-              case (_, pr) => pr 
-            }
-            .reduce(_*_)
-          // Needed to reconvert to a serializable object
-          }.view.map { case(k,v) => (k, v) }
-          .toList
-          .map { case (i, prpr) => prpr }.reduce(_+_))
-      }
-
-    val itemAverage = train.toItemPair.averageByKey
     val userAverage = train.toUserPair.averageByKey
+
+    val similarities = userSimilarities(processed)
 
     println(s"CURRENT TEST SET SIZE ${test.count}")
 
-    val predictions1 = test
+    val predictions = test
       .leftOuterJoin(userAverage)
-      .map { case (u, (i, uAvg)) => (i, (u, uAvg.getOrElse(globalAverage))) }
+      .map { case (u, (i, uAvg)) => (i, (u, uAvg.getOrElse(globalAverage))) }      
       .join(train.map(r => (r.item, (r.user, r.rating))).groupByKey())
-      .map {
+      .flatMap { 
         case (i, ((u, uAvg), others)) => 
-          (i, (u, uAvg, others))
+          others.map {
+            case (v, r) => {
+              val key = if (u > v) (u, v) else (v, u)
+
+              (v, (u, i, uAvg, similarities.get(key).getOrElse(0.0), r))
+            }
+          }
       }
-
-    println(s"CURRENT TEST SET SIZE ${predictions1.count}")
-
-    val predictions2 = predictions1
-      // modify structure to join to similarities per (u, v)
-      .flatMap {
-        case (i, (u, uAvg, others)) => 
-          others
-            .filter { case (v, r) => v != u }
-            .map { case (v, r) => ((u, v), (i, uAvg, r)) }
-      }
-
-    println(s"CURRENT TEST SET SIZE ${predictions2.count}")
-
-    val predictions3 = predictions2
-      .leftOuterJoin(similarities)
-      // modify structure to join with train ratings
+      .join(userAverage)
       .map { 
-        case ((u, v), ((i, uAvg, r), s)) => 
-          // TODO: verify that we should replace unchecked similarities by 0.0
-          ((u, i, uAvg), (v, s.getOrElse(0.0), r))
-      }
-      .map {
-        case ((u, i, uAvg), (v, s, r)) => 
-          (v, (u, i, uAvg, s, r))
-      }
-
-    println(s"CURRENT TEST SET SIZE ${predictions3.count}")
-
-    val predictions10 = predictions3
-      .leftOuterJoin(train.toUserPair.averageByKey)
-      .map {
-        case (v, ((u, i, uAvg, s, r), vAvg)) =>
-          ((u, i, uAvg), (v, s, r, vAvg.getOrElse(globalAverage)))
+        case (v, ((u, i, uAvg, s, r), vAvg)) => 
+          ((u, i, uAvg), (s, normalizedDeviation(r, vAvg))) 
       }
       .groupByKey()
-
-    println(s"CURRENT TEST SET SIZE ${predictions10.count}")
-
-    val predictions4 = predictions10
-      // extract `s_{u, v}` as List[s] from List[Tuple2[v, s]]
       .map { 
-        case ((u, i, uAvg), lvsra) => 
-          ((u, i, uAvg), lvsra.map { case (v, s, r, vAvg) => (s, normalizedDeviation(r, vAvg)) })
-      }
-      .map {
-        case ((u, i, uAvg), lsd) => {
+        case ((u, i, uAvg), lsd) =>
           val nom = lsd.map { case (s, nd) => s * nd }.reduce(_+_)
           val denom = lsd.map { case (s, _) => scala.math.abs(s) }.reduce(_+_)
-          val userSpecWeigSumDev = nom / denom.toDouble
 
-          Rating(u, i, uAvg + userSpecWeigSumDev * scale((uAvg + userSpecWeigSumDev), uAvg))
-        }
+          val userSpecWeigSumDev = if (denom == 0.0) (0.0) else (nom / denom.toDouble)
+
+          (Rating(u, i, uAvg + userSpecWeigSumDev * scale((uAvg + userSpecWeigSumDev), uAvg)))
       }
 
     val uncheckedItems = test
@@ -331,14 +287,14 @@ object Predictor extends App {
       }
       .filter(_.rating > 0.0)
 
+    println(s"CURRENT TEST SET SIZE ${predictions.count}")
     println(s"UNCHECKED ITEMS SIZE ${uncheckedItems.count}")
 
-    val predictions5 = predictions4.union(uncheckedItems)
+    val result = predictions.union(uncheckedItems)
 
-    println(s"CURRENT TEST SET SIZE ${predictions5.count}")
+    println(s"CURRENT TEST SET SIZE ${result.count}")
 
-    // TODO: it's returning null right now!??!
-    return predictions5
+    (result)
 
   }
 
@@ -355,7 +311,7 @@ object Predictor extends App {
     train : RDD[Rating],
     test : RDD[Rating],
     predictor : (RDD[Rating], RDD[(Int, Int)]) => RDD[Rating]
-  ) : Double = {
+  ) = {
 
     val predictionErrors = predictor(train, test.map(r => (r.user, r.item)))
       .map(r => ((r.user, r.item), r.rating))
@@ -366,10 +322,13 @@ object Predictor extends App {
     assert(predictionErrors.count() == test.count(),
            "RDD sizes do not match when computing baseline MAE.")
     
-    return predictionErrors.mean
+    (predictionErrors)
 
   }
-  
+
+  val cosineBasedMae = maeByPredictor(train, test, cosinePredictor)
+
+  // cosinePredictor(train, test.sample(false, 0.1, 12345).map(r => (r.user, r.item))).take(30).foreach(println)
 
   // ################################################################
 
@@ -387,10 +346,10 @@ object Predictor extends App {
       var json = "";
       {
         // Limiting the scope of implicit formats with {}
-        implicit val formats = org.json4s.DefaultFormats
+        implicit val formats = org.json4s.DefaultFormats  
         val answers: Map[String, Any] = Map(
           "Q2.3.1" -> Map(
-            "CosineBasedMae" -> maeByPredictor(train, test, cosinePredictor), // Datatype of answer: Double
+            "CosineBasedMae" -> cosineBasedMae.mean, // Datatype of answer: Double
             "CosineMinusBaselineDifference" -> 0.0 // Datatype of answer: Double
           ),
 
@@ -446,7 +405,7 @@ object Predictor extends App {
       }
 
       // println(json)
-      // println("Saving answers in: " + jsonFile)
+      println("Saving answers in: " + jsonFile)
       printToFile(json, jsonFile)
     }
   }
@@ -454,3 +413,26 @@ object Predictor extends App {
   println("")
   spark.close()
 }
+
+
+// .flatMap{ 
+//   case (u, ((i, uAvg, others), lvs)) => {
+
+//     println("Getting similarities!")
+
+//     val similarities = lvs
+//       .filter { case (v, s) => others.map(_._1).toList.contains(v) }
+//       .toList
+
+//     println("Got similarities!")
+    
+//     // replacing the above similarities by this line computes baseline
+//     // val similarities = others.map { case (v, r) => (v, 1.0) }.toList
+
+//     (similarities ++ others).groupBy(_._1)
+//       .map { case (k, v) => k -> v.map(_._2) }
+//       .map { case (v, sr) => (v, sr(0), sr(1)) }
+//       .map { case (v, s, r) => (v, (u, i, uAvg, s, r)) }
+//       .toList
+//   }
+// }
