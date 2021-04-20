@@ -63,7 +63,7 @@ object Recommender extends App {
     ratings : RDD[Rating],
     userId : Int,
     n : Int,
-    predictor : (RDD[Rating], RDD[(Int, Int)]) => RDD[Rating] = Predictor.baselinePrediction
+    predictor : (RDD[Rating], RDD[(Int, Int)]) => RDD[Rating] = Predictor.baselinePredictor
     ) : List[(Int, Double)] = {
       
       val ratedItems = ratings.filter(_.user == userId).map(_.item).collect()

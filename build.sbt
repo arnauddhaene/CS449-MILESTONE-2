@@ -10,4 +10,3 @@ libraryDependencies += "org.apache.spark" %% "spark-sql" % "3.0.0"
 
 scalaVersion in ThisBuild := "2.12.13"
 enablePlugins(JavaAppPackaging)
-
