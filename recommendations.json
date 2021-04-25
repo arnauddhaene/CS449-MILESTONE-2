@@ -1,0 +1,6 @@
+{
+  "Q3.2.5" : {
+    "Top5WithK=30" : [ [ 236, "Citizen Ruth (1996)", 5.0 ], [ 242, "Kolya (1996)", 5.0 ], [ 253, "Pillow Book", 5.0 ], [ 287, "Marvin's Room (1996)", 5.0 ], [ 320, "Paradise Lost: The Child Murders at Robin Hood Hills (1996)", 5.0 ] ],
+    "Top5WithK=300" : [ [ 850, "Perfect Candidate", 5.0 ], [ 884, "Year of the Horse (1997)", 5.0 ], [ 1189, "Prefontaine (1997)", 5.0 ], [ 1201, "Marlene Dietrich: Shadow and Light (1996)", 5.0 ], [ 1358, "The Deadly Cure (1996)", 5.0 ] ]
+  }
+}

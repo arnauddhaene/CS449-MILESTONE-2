@@ -4,13 +4,13 @@
   },
   "Q2.3.7" : {
     "DurationInMicrosecForComputingSimilarities" : {
-      "min" : 7.7923663971E7,
-      "max" : 1.08050201705E8,
-      "average" : 8.697998927480002E7,
-      "stddev" : 8641651.288995
+      "min" : 1.2583860479E7,
+      "max" : 1.4080158592E7,
+      "average" : 1.32749191418E7,
+      "stddev" : 530869.2906791663
     },
-    "AverageTimeInMicrosecPerSuv" : 195.83339361616385,
-    "RatioBetweenTimeToComputeSimilarityOverTimeToPredict" : 6.043374167595556
+    "AverageTimeInMicrosecPerSuv" : 29.888167234714164,
+    "RatioBetweenTimeToComputeSimilarityOverTimeToPredict" : 0.1829664602935125
   },
   "Q2.3.4" : {
     "CosineSimilarityStatistics" : {
@@ -29,10 +29,10 @@
   },
   "Q2.3.6" : {
     "DurationInMicrosecForComputingPredictions" : {
-      "min" : 1.3459318714E7,
-      "max" : 1.5473426713E7,
-      "average" : 1.4392620225499999E7,
-      "stddev" : 676320.4113355291
+      "min" : 6.8986748074E7,
+      "max" : 7.8058304207E7,
+      "average" : 7.25538392146E7,
+      "stddev" : 3378489.217994388
     }
   },
   "Q2.3.2" : {

@@ -3,8 +3,6 @@ package similarity
 import similarity.RatingFunctions._
 import similarity.PairRDDFunctions._
 
-import knn.VectorFunctions._
-
 import org.rogach.scallop._
 import org.json4s.jackson.Serialization
 import org.apache.spark.rdd.RDD
@@ -23,7 +21,7 @@ class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
 case class Rating(user: Int, item: Int, rating: Double)
 
 // Extension of RDD[Rating] with custom operators
-class RatingFunctions(rdd : RDD[Rating]) {
+class RatingFunctions(rdd: RDD[Rating]) {
   
   def averageRating = rdd.map(_.rating).mean
 
@@ -48,7 +46,7 @@ class PairRDDFunctions(rdd : RDD[(Int, Double)]) {
       (v1, v2) => (v1._1 + v2._1, v1._2 + v2._2))
     .mapValues(sum => 1.0 * sum._1 / sum._2.toDouble)
 
-  def ratioCloseTo(global : Double, threshold : Double = 0.5) = 
+  def ratioCloseTo(global: Double, threshold: Double = 0.5) = 
     1.0 * rdd.values.filter(r => (r - global).abs < threshold).count / rdd.values.count
 
   def allCloseTo(global: Double, threshold: Double = 0.5) =
@@ -60,21 +58,32 @@ object PairRDDFunctions {
   implicit def addPairRDDFunctions(rdd: RDD[(Int, Double)]) = new PairRDDFunctions(rdd) 
 }
 
+// modular way of timing prediction compute
 object PredictionTimer {
 
+  /**
+    * Time similarity computation and total prediction time
+    *
+    * @param predictor
+    * @param similarityComputor
+    * @param train
+    * @param test
+    * 
+    * @return List[Double], List[Double]: times taken for computation
+    */
   def time(
-    predictor: (RDD[Rating], RDD[(Int, Int)], Map[(Int, Int), Double]) => RDD[Rating], 
-    similarityComputor: RDD[Rating] => Map[(Int, Int), Double], 
+    predictor: (RDD[Rating], RDD[(Int, Int)], Map[(Int, Int), Double], Boolean) => RDD[Rating], 
+    similarityComputor: (RDD[Rating], Boolean) => IndexedSeq[((Int, Int), Double)], 
     train: RDD[Rating], test: RDD[Rating]
-  ) : (Double, Double) = {
+  ): (Double, Double) = {
     
     val start = System.nanoTime()
 
-    val similarities = similarityComputor(train)
+    val similarities = similarityComputor(train, true).toMap
     
     val timeSimilarities = (System.nanoTime() - start) / 1e3d
     
-    val predictions = predictor(train, test.toUserItemPair, similarities)
+    val predictions = predictor(train, test.toUserItemPair, similarities, true)
       // reduce in order to collect RDD
       .map(_.rating).reduce(_ + _)
     
@@ -117,6 +126,7 @@ object Predictor extends App {
 
   // ######################## MY CODE HERE ##########################
 
+
   /**
     * Computes x scaled by the user average rating.
     *
@@ -132,77 +142,60 @@ object Predictor extends App {
       case userAvg => 1.0
     }
   }
-  
+
   /**
-    * Compute rating prediction using the baseline method.
+    * Average of an Iterable of a Numeric Type
     *
-    * @param train: RDD[Rating]
-    * @param test: RDD[(Int, Int)]
+    * @param ts: iterable
     * 
-    * @return RDD[Rating] with the predicted rating for each (user, item) pair
+    * @return average
     */
-  def baselinePredictor(train : RDD[Rating], test : RDD[(Int, Int)]) : RDD[Rating] = {
-
-    // Calculate global average rating
-    val globalAvg = train.averageRating
-
-    val userAverageRating = train.toUserPair.averageByKey
-    
-    val normalizedDeviations = train
-      .map(r => (r.user, (r.item, r.rating)))
-      .join(userAverageRating)
-      .map { case (u, ((i, r), ua)) => Rating(u, i, 1.0 * (r - ua) / scale(r, ua).toDouble) }    
-    
-    val itemGlobalAverageDeviation = normalizedDeviations.toItemPair.averageByKey
-
-    // Verify that normalized deviations are within range and distinct for (user, item) pairs
-    assert(normalizedDeviations.filter(r => (r.rating > 1.0) || (r.rating < -1.0)).count == 0, 
-           "Normalization not within range.")
-    assert(normalizedDeviations.map(r => (r.user, r.item)).distinct.count == train.count,
-           "Non unique pairs of (user, item).")
-
-    val predictions = test
-      .join(userAverageRating)
-      .map { case (u, (i, ua)) => (i, (ua, u)) }
-      .leftOuterJoin(itemGlobalAverageDeviation)
-      .map { case (i, ((ua, u), ia)) => 
-        ia match {
-          case None => Rating(u, i, globalAvg)
-          case Some(ia) => 
-            Rating(u, i, (ua + ia * scale((ua + ia), ua)))
-        }
-      }
-
-    // Verify that all predictions are in the range [1.0, 5.0]
-    assert(predictions.filter(p => (p.rating < 1.0) || (p.rating > 5.0)).count == 0,
-           "Some predictions are out of bounds")
-
-    return predictions
-
-  }
-
-  // TODO: documentation
   def average[T](ts: Iterable[T])(implicit num: Numeric[T]) = {
     num.toDouble(ts.sum) / ts.size
   }
 
+  /**
+    * Variance of an Iterable of a Numeric Type
+    *
+    * @param xs: Iterable
+    * 
+    * @return variance
+    */
   def variance[T](xs: Iterable[T])(implicit num: Numeric[T]) = {
     val avg = average(xs)
-
     xs.map(num.toDouble(_)).map(a => math.pow(a - avg, 2)).sum / xs.size
   }
 
+  /**
+    * Standard deviation of an Iterable of a Numeric Type
+    *
+    * @param xs: Iterable
+    * 
+    * @return standard deviation
+    */
   def stdev[T](xs: Iterable[T])(implicit num: Numeric[T]) = math.sqrt(variance(xs))
 
 
-  // TODO: documentation
-  def normalizedDeviation(rating: Double, itemAverage: Double) = {
-    1.0 * (rating - itemAverage) / scale(rating, itemAverage).toDouble
+  /**
+    * Normalized deviation of an item's rating following Miletone 1 definition
+    *
+    * @param rating
+    * @param itemAverage
+    * 
+    * @return Double
+    */
+  def normalizedDeviation(rating: Double, itemAverage: Double): Double = {
+    return 1.0 * (rating - itemAverage) / scale(rating, itemAverage).toDouble
   }
 
-  // TODO: documentation
-  def cosineSimilarityDenominator(ratings: Iterable[Double]) = {
-    scala.math.sqrt(
+  /**
+    * Cosine similarity denominator from Eq. 4 Milestone 2
+    *
+    * @param ratings
+    * @return
+    */
+  def cosineSimilarityDenominator(ratings: Iterable[Double]): Double = {
+    return scala.math.sqrt(
       ratings
         .map(r => scala.math.pow(normalizedDeviation(r, average(ratings)), 2))
         .sum
@@ -215,7 +208,7 @@ object Predictor extends App {
     * @param train: RDD[Rating]
     * @return RDD[(Int, Iterable[(Int, Double)])] of preprocessed ratings
     */
-  def preprocess(train : RDD[Rating]) : RDD[(Int, Iterable[(Int, Double)])] = {
+  def preprocess(train: RDD[Rating]): RDD[(Int, Iterable[(Int, Double)])] = {
     return train
       // key on user id
       .map(r => (r.user, (r.item, r.rating)))
@@ -238,7 +231,14 @@ object Predictor extends App {
       }
   }
 
-  // TODO: documentation
+  /**
+    * Jaccard similarity coefficient 
+    *
+    * @param a: set of items rated by user u
+    * @param b: set of items rated by user v
+    * 
+    * @return Double: intersection over union
+    */
   def jaccard(a: Set[Int], b: Set[Int]): Double = {
     // edge case - division by zero
     // this will never occur as we filter out empty `li` in line 46
@@ -249,7 +249,11 @@ object Predictor extends App {
     return if (un == 0.0) (0.0) else (in / un)
   }
 
-  // TODO: documentation
+  /**
+    * Compute Jaccard similarity coefficients for all users in a training set
+    *
+    * @param train
+    */
   def jaccardSimilarities(train: RDD[Rating]) : Map[(Int, Int), Double] = {
 
     val likedMovies = train.toUserItemPair
@@ -280,24 +284,31 @@ object Predictor extends App {
 
   /**
     * Create a map of the cosine similarities between all users
-    * @note call the resulting map with key (u, v) only when u > v
+    * @note call the resulting map with key (u, v) only when u > v if optimized set to true
     *
     * @param processed: Map[Int, Iterable[(Int, Double)]]
+    * @param optimized: calculate only a triangular matrix of similarities
+    * 
     * @return map of user-user pair similarity values
     */
-  def cosineSimilarities(train : RDD[Rating]) : Map[(Int, Int), Double] = {
+  def cosineSimilarities(train: RDD[Rating], optimized: Boolean = true): IndexedSeq[((Int, Int), Double)] = {
 
     val processed = preprocess(train)
       .collect
       .toMap
+ 
+    val nbUsers = processed.size
 
-    val similarities = (1 to 943)
+    val similarities = (1 to nbUsers)
       .flatMap { 
         case (u) => {
           val uItemRatings = processed.get(u).getOrElse(List()).toMap
           
+          // optimize calculations of similarities based on KNN or not
+          val nbForInternalMap = if (optimized) (u - 1) else (nbUsers)
+
           // create pairs of similarity indexes
-          (1 to u - 1).map {
+          (1 to nbForInternalMap).map {
             case (v) => {
               val vItemRatings = processed.get(v).getOrElse(List()).toMap
 
@@ -305,19 +316,26 @@ object Predictor extends App {
               ((u, v), uItemRatings.keySet.intersect(vItemRatings.keySet).map(k => k -> ( uItemRatings(k), vItemRatings(k) )).toList)
             }
           }
+          .filter { case ((u, v), l) => u != v }
+          // reduce list of items in intersection into the similary
+          .map { 
+            case ((u, v), l) => 
+              ((u, v), if (l.isEmpty) 0.0 else l.map { case (i, (upr, vpr)) => upr * vpr }.reduce(_+_))
+          }
         }
       }
-      // reduce list of items in intersection into the similary
-      .map { 
-        case ((u, v), l) => 
-          ((u, v), if (l.isEmpty) 0.0 else l.map { case (i, (upr, vpr)) => upr * vpr }.reduce(_+_))
-      }
 
-    return (similarities.toMap)
+    return similarities
   }
 
-  // TODO: documentation
-  def multiplicationsRequired(train: RDD[Rating]) : Iterable[Int] = {
+  /**
+    * Compute the minimum multiplications required for each similarity 
+    *
+    * @param train
+    * 
+    * @return Iterable[Int] number of multiplications for each pair of users
+    */
+  def multiplicationsRequired(train: RDD[Rating]): Iterable[Int] = {
 
     val likedMovies = train.toUserItemPair
       .groupByKey()
@@ -342,7 +360,7 @@ object Predictor extends App {
       }
 
     // Verify that we are calculating the adequate amount of similarities
-    assert(multiplications.size == 444153)
+    // assert(multiplications.size == 444153)
 
     return multiplications
 
@@ -351,10 +369,15 @@ object Predictor extends App {
   /**
     * Compute predictions based on similarities (Eq 2 and 3)
     *
+    * @param train
     * @param test
     * @param similarities
+    * @param optimized: fetch u smaller than v for triangular similarities
     */
-  def predictBySimilarity(train: RDD[Rating], test: RDD[(Int, Int)], similarities: Map[(Int, Int), Double]): RDD[Rating] = {
+  def predictBySimilarity(
+    train: RDD[Rating], test: RDD[(Int, Int)], 
+    similarities: Map[(Int, Int), Double], optimized: Boolean = true
+  ): RDD[Rating] = {
 
     val globalAverage = train.averageRating
     val userAverage = train.toUserPair.averageByKey
@@ -367,7 +390,11 @@ object Predictor extends App {
         case (i, ((u, uAvg), others)) => 
           others.map {
             case (v, r) => {
-              val key = if (u > v) (u, v) else (v, u)
+              var key = (u, v)
+              
+              if (optimized) {
+                key = if (u > v) (u, v) else (v, u)
+              }
 
               (v, (u, i, uAvg, similarities.get(key).getOrElse(0.0), r))
             }
@@ -400,7 +427,7 @@ object Predictor extends App {
     */
   def cosinePredictor(train : RDD[Rating], test : RDD[(Int, Int)]):  RDD[Rating] = {
 
-    val similarities = cosineSimilarities(train)
+    val similarities = cosineSimilarities(train).toMap
 
     return predictBySimilarity(train, test, similarities)
 
@@ -447,32 +474,29 @@ object Predictor extends App {
       .map { case ((u, i), (r, p)) => scala.math.abs(p.getOrElse(globalAverage) - r) }
 
     // Verify that predictions and test RDDs are the same size
-    assert(predictionErrors.count == test.count,
-           s"RDD sizes do not match when computing MAE: ${predictionErrors.count} vs. ${test.count}")
+    // assert(predictionErrors.count == test.count,
+    //        s"RDD sizes do not match when computing MAE: ${predictionErrors.count} vs. ${test.count}")
     
     return predictionErrors
 
   }
 
+  // As provided in Milestone guidelines
   val baselineMae = 0.7669
-  // val cosineBasedMae = 0.7474736923652187
-  // val jaccardBasedMae = 0.763385180322287
 
   val cosineBasedMae = maeByPredictor(train, test, cosinePredictor).mean
   val jaccardBasedMae = maeByPredictor(train, test, jaccardPredictor).mean
 
   val multiplications = multiplicationsRequired(train)
-  val nonIntersectingSimilarities = multiplications.filter(_ != 0)
+  val nonZeroSimilarities = multiplications.filter(_ != 0)
 
-  val timeVectors = (1 to 10).map(iter => {
+  val timeVectors = (1 to 5).map(iter => {
     println(s"Iteration $iter")
-
     (PredictionTimer.time(predictBySimilarity, cosineSimilarities, train, test))
   }).unzip
 
-  val timeForPredictions = timeVectors._1.toVector
-
-  val timeForSimilarities = timeVectors._2.toVector
+  val timeForSimilarities = timeVectors._1
+  val timeForPredictions = timeVectors._2
 
   // ################################################################
 
@@ -505,7 +529,7 @@ object Predictor extends App {
           "Q2.3.3" -> Map(
             // Provide the formula that computes the number of similarity computations
             // as a function of U in the report.
-            "NumberOfSimilarityComputationsForU1BaseDataset" -> 444153 // Datatype of answer: Int
+            "NumberOfSimilarityComputationsForU1BaseDataset" -> multiplications.size // Datatype of answer: Int
           ),
 
           "Q2.3.4" -> Map(
@@ -520,15 +544,15 @@ object Predictor extends App {
           "Q2.3.5" -> Map(
             // Provide the formula that computes the amount of memory for storing all S(u,v)
             // as a function of U in the report.
-            "TotalBytesToStoreNonZeroSimilarityComputationsForU1BaseDataset" -> nonIntersectingSimilarities.size * 8 // Datatype of answer: Int
+            "TotalBytesToStoreNonZeroSimilarityComputationsForU1BaseDataset" -> nonZeroSimilarities.size * 8 // Datatype of answer: Int
           ),
 
           "Q2.3.6" -> Map(
             "DurationInMicrosecForComputingPredictions" -> Map(
               "min" -> timeForPredictions.min,  // Datatype of answer: Double
               "max" -> timeForPredictions.max, // Datatype of answer: Double
-              "average" -> timeForPredictions.mean, // Datatype of answer: Double
-              "stddev" -> timeForPredictions.stdev // Datatype of answer: Double
+              "average" -> average(timeForPredictions), // Datatype of answer: Double
+              "stddev" -> stdev(timeForPredictions) // Datatype of answer: Double
             )
             // Discuss about the time difference between the similarity method and the methods
             // from milestone 1 in the report.
@@ -538,17 +562,17 @@ object Predictor extends App {
             "DurationInMicrosecForComputingSimilarities" -> Map(
               "min" -> timeForSimilarities.min,  // Datatype of answer: Double
               "max" -> timeForSimilarities.max, // Datatype of answer: Double
-              "average" -> timeForSimilarities.mean, // Datatype of answer: Double
-              "stddev" -> timeForSimilarities.stdev // Datatype of answer: Double
+              "average" -> average(timeForSimilarities), // Datatype of answer: Double
+              "stddev" -> stdev(timeForSimilarities) // Datatype of answer: Double
             ),
-            "AverageTimeInMicrosecPerSuv" -> timeForSimilarities.mean.toDouble / 444153, // Datatype of answer: Double
-            "RatioBetweenTimeToComputeSimilarityOverTimeToPredict" -> timeForSimilarities.mean.toDouble / timeForPredictions.mean // Datatype of answer: Double
+            "AverageTimeInMicrosecPerSuv" -> average(timeForSimilarities).toDouble / multiplications.size, // Datatype of answer: Double
+            "RatioBetweenTimeToComputeSimilarityOverTimeToPredict" -> average(timeForSimilarities).toDouble / average(timeForPredictions) // Datatype of answer: Double
           )
          )
         json = Serialization.writePretty(answers)
       }
 
-      // println(json)
+      println(json)
       println("Saving answers in: " + jsonFile)
       printToFile(json, jsonFile)
     }
