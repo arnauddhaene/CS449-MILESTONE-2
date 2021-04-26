@@ -41,7 +41,7 @@ object Predictor extends App {
   val train = trainFile.map(l => {
       val cols = l.split("\t").map(_.trim)
       Rating(cols(0).toInt, cols(1).toInt, cols(2).toDouble)
-  })
+  }).coalesce(1)
   assert(train.count == 80000, "Invalid training data")
 
   println("Loading test data from: " + conf.test())
@@ -49,7 +49,7 @@ object Predictor extends App {
   val test = testFile.map(l => {
       val cols = l.split("\t").map(_.trim)
       Rating(cols(0).toInt, cols(1).toInt, cols(2).toDouble)
-  })
+  }).coalesce(1)
   assert(test.count == 20000, "Invalid test data")
 
   // ######################## MY CODE HERE ##########################

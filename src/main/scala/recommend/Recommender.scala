@@ -100,7 +100,7 @@ object Recommender extends App {
       
   }
 
-  val updatedRatings = data.union(personalRatings)
+  val updatedRatings = data.union(personalRatings).coalesce(1)
 
   val similarities = Predictor.cosineSimilarities(updatedRatings, optimized = false)
 
