@@ -348,7 +348,7 @@ object Predictor extends App {
           val uMovies = likedMovies.get(u).getOrElse(List()).toSet
           
           // create pairs of similarity indexes
-          (1 to u - 1).map {
+          (1 to 943).map {
             case (v) => {
               val vMovies = likedMovies.get(v).getOrElse(List()).toSet
 
@@ -382,38 +382,40 @@ object Predictor extends App {
     val globalAverage = train.averageRating
     val userAverage = train.toUserPair.averageByKey
 
+    val trainWithUserAverage = train.map(r => (r.user, (r.item, r.rating)))
+      .join(train.toUserPair.averageByKey)
+      .map { case (u, ((i, r), uAvg)) => (i, (u, r, uAvg)) }
+      .groupByKey()
+
     return test
       .leftOuterJoin(userAverage)
       .map { case (u, (i, uAvg)) => (i, (u, uAvg.getOrElse(globalAverage))) }      
-      .join(train.map(r => (r.item, (r.user, r.rating))).groupByKey())
-      .flatMap { 
-        case (i, ((u, uAvg), others)) => 
-          others.map {
-            case (v, r) => {
+      .join(trainWithUserAverage)
+      .map { 
+        case (i, ((u, uAvg), others)) => {
+          
+          // `lsd` is my personal short-hand for List[(s, d)] or List[(similarity, deviation)]
+          val lsd = others.map {
+            case (v, r, vAvg) => {
               var key = (u, v)
               
               if (optimized) {
                 key = if (u > v) (u, v) else (v, u)
               }
 
-              (v, (u, i, uAvg, similarities.get(key).getOrElse(0.0), r))
+              (similarities.get(key).getOrElse(0.0), normalizedDeviation(r, vAvg))
             }
           }
-      }
-      .join(userAverage)
-      .map { 
-        case (v, ((u, i, uAvg, s, r), vAvg)) => 
-          ((u, i, uAvg), (s, normalizedDeviation(r, vAvg))) 
-      }
-      .groupByKey()
-      .map { 
-        case ((u, i, uAvg), lsd) =>
+          
+          // Implementation of Equation 2 in Milestone 2 guidelines
           val nom = lsd.map { case (s, nd) => s * nd }.reduce(_+_)
           val denom = lsd.map { case (s, _) => scala.math.abs(s) }.reduce(_+_)
 
           val userSpecWeigSumDev = if (denom == 0.0) (0.0) else (nom / denom.toDouble)
 
           (Rating(u, i, uAvg + userSpecWeigSumDev * scale((uAvg + userSpecWeigSumDev), uAvg)))
+          
+        }
       }
   }
 
@@ -565,7 +567,7 @@ object Predictor extends App {
               "average" -> average(timeForSimilarities), // Datatype of answer: Double
               "stddev" -> stdev(timeForSimilarities) // Datatype of answer: Double
             ),
-            "AverageTimeInMicrosecPerSuv" -> average(timeForSimilarities).toDouble / multiplications.size, // Datatype of answer: Double
+            "AverageTimeInMicrosecPerSuv" -> average(timeForSimilarities).toDouble / 444153.0, // Datatype of answer: Double
             "RatioBetweenTimeToComputeSimilarityOverTimeToPredict" -> average(timeForSimilarities).toDouble / average(timeForPredictions) // Datatype of answer: Double
           )
          )
