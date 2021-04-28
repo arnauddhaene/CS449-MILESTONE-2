@@ -191,7 +191,7 @@ object Predictor extends App {
 
           "Q3.2.3" -> Map(
             "SizeOfRamInBytes" -> bytesPerGB(16), // Datatype of answer: Long
-            "MaximumNumberOfUsersThatCanFitInRam" -> maxUsersInRAM(16, 10) // Datatype of answer: Long
+            "MaximumNumberOfUsersThatCanFitInRam" -> maxUsersInRAM(16, lowestKWithBetterMaeThanBaseline._1) // Datatype of answer: Long
           )
 
           // Answer the Question 3.2.4 exclusively on the report.
@@ -199,7 +199,7 @@ object Predictor extends App {
         json = Serialization.writePretty(answers)
       }
 
-      // println(json)
+      println(json)
       println("Saving answers in: " + jsonFile)
       printToFile(json, jsonFile)
     }
