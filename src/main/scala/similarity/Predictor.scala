@@ -390,32 +390,37 @@ object Predictor extends App {
     return test
       .leftOuterJoin(userAverage)
       .map { case (u, (i, uAvg)) => (i, (u, uAvg.getOrElse(globalAverage))) }      
-      .join(trainWithUserAverage)
+      .leftOuterJoin(trainWithUserAverage)
       .map { 
-        case (i, ((u, uAvg), others)) => {
-          
-          // `lsd` is my personal short-hand for List[(s, d)] or List[(similarity, deviation)]
-          val lsd = others.map {
-            case (v, r, vAvg) => {
-              var key = (u, v)
-              
-              if (optimized) {
-                key = if (u > v) (u, v) else (v, u)
+        case (i, ((u, uAvg), lvra)) => 
+
+          val others = lvra.getOrElse(List())
+        
+          if (!others.isEmpty) {
+            // `lsd` is my personal short-hand for List[(s, d)] or List[(similarity, deviation)]
+            val lsd = others.map {
+              case (v, r, vAvg) => {
+                var key = (u, v)
+                
+                if (optimized) {
+                  key = if (u > v) (u, v) else (v, u)
+                }
+
+                (similarities.get(key).getOrElse(0.0), normalizedDeviation(r, vAvg))
               }
-
-              (similarities.get(key).getOrElse(0.0), normalizedDeviation(r, vAvg))
             }
+            
+            // Implementation of Equation 2 in Milestone 2 guidelines
+            val nom = lsd.map { case (s, nd) => s * nd }.reduce(_+_)
+            val denom = lsd.map { case (s, _) => scala.math.abs(s) }.reduce(_+_)
+
+            val userSpecWeigSumDev = if (denom == 0.0) (0.0) else (nom / denom.toDouble)
+
+            (Rating(u, i, uAvg + userSpecWeigSumDev * scale((uAvg + userSpecWeigSumDev), uAvg)))
+                
+          } else {
+            (Rating(u, i, uAvg))
           }
-          
-          // Implementation of Equation 2 in Milestone 2 guidelines
-          val nom = lsd.map { case (s, nd) => s * nd }.reduce(_+_)
-          val denom = lsd.map { case (s, _) => scala.math.abs(s) }.reduce(_+_)
-
-          val userSpecWeigSumDev = if (denom == 0.0) (0.0) else (nom / denom.toDouble)
-
-          (Rating(u, i, uAvg + userSpecWeigSumDev * scale((uAvg + userSpecWeigSumDev), uAvg)))
-          
-        }
       }
   }
 
